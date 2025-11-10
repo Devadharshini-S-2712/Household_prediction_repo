@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        :root {
+            --primary: #00c6ff; --secondary: #0072ff; --accent: #ff4081;
+            --dark: #1a1a2e; --light: #f5f7fa; --success: #4caf50; --warning: #ff9800; --danger: #f44336;
+        }
+        body { background: linear-gradient(135deg, var(--dark) 0%, #16213e 100%); color: var(--light); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; margin-bottom: 20px; }
+        .logo { display: flex; align-items: center; gap: 15px; }
+        .logo i { font-size: 2rem; color: var(--primary); animation: pulse 2s infinite; }
+        .logo h1 { font-size: 1.8rem; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .card { background: rgba(255, 255, 255, 0.05); border-radius: 15px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; position: relative; overflow: hidden; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: linear-gradient(to right, var(--primary), var(--secondary)); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .card-title { font-size: 1.1rem; font-weight: 600; color: #ddd; }
+        .card-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(0, 198, 255, 0.2); color: var(--primary); font-size: 1.2rem; cursor: pointer; transition: all 0.3s; }
+        .card-icon:hover { transform: scale(1.1); background: rgba(0, 198, 255, 0.3); }
+        .consumption-value { font-size: 2rem; font-weight: 700; margin: 10px 0; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .progress-bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 5px; margin-top: 10px; overflow: hidden; }
+        .progress { height: 100%; border-radius: 5px; background: linear-gradient(to right, var(--primary), var(--secondary)); width: 65%; animation: progressAnimation 2s ease-in-out; }
+        .appliance-list { list-style: none; margin-top: 15px; }
+        .appliance-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; }
+        .appliance-item:hover { background: rgba(255,255,255,0.05); border-radius: 8px; padding-left: 10px; }
+        .appliance-name { display: flex; align-items: center; gap: 10px; }
+        .appliance-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); color: var(--primary); }
+        .appliance-status { width: 10px; height: 10px; border-radius: 50%; background: var(--success); transition: all 0.3s; }
+        .appliance-status.off { background: var(--danger); }
+        .chart-container { height: 200px; margin-top: 15px; }
+        .tips-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 15px; }
+        .tip-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; display: flex; align-items: center; gap: 10px; transition: all 0.3s; cursor: pointer; }
+        .tip-card:hover { background: rgba(255,255,255,0.1); transform: translateX(5px); }
+        .tip-icon { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,64,129,0.2); color: var(--accent); font-size: 1rem; }
+        .controls { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn { padding: 10px 20px; border-radius: 30px; border: none; font-weight: 600; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(to right, var(--primary), var(--secondary)); color: white; }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .file-upload-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .file-upload-box { background: var(--dark); border-radius: 15px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
+        .upload-area { border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px; padding: 30px 15px; text-align: center; margin-bottom: 15px; transition: all 0.3s; cursor: pointer; }
+        .upload-area:hover { border-color: var(--primary); background: rgba(0,198,255,0.05); }
+        .upload-area i { font-size: 2.5rem; color: var(--primary); margin-bottom: 10px; }
+        .file-input { display: none; }
+        .upload-btn { width: 100%; padding: 10px; background: linear-gradient(to right, var(--primary), var(--secondary)); color: white; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .upload-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .notification { position: fixed; bottom: 20px; right: 20px; padding: 15px 20px; background: var(--success); color: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transform: translateX(150%); transition: transform 0.5s; z-index: 1001; }
+        .notification.show { transform: translateX(0); }
+        .notification.error { background: var(--danger); }
+        @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255,64,129,0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255,64,129,0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255,64,129,0); } }
+        @keyframes progressAnimation { 0% { width: 0%; } }
+        @keyframes float { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        .floating { animation: float 5s ease-in-out infinite; }
+        @media (max-width: 768px) { .dashboard { grid-template-columns: 1fr; } .tips-container { grid-template-columns: 1fr; } header { flex-direction: column; gap: 10px; text-align: center; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-bolt floating"></i>
+                <h1>Home Energy Dashboard</h1>
+            </div>
+            <div class="date-display" id="current-date"></div>
+        </header>
+
+        <div class="dashboard">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Current Usage</h2>
+                    <div class="card-icon" id="upload-current"><i class="fas fa-plug"></i></div>
+                </div>
+                <div class="consumption-value">1.24<span style="font-size:1rem;color:#aaa">kW</span></div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:0.9rem;margin-top:5px;color:#4caf50">
+                    <i class="fas fa-arrow-down"></i><span>12% less than yesterday</span>
+                </div>
+                <div class="progress-bar"><div class="progress"></div></div>
+                <div class="appliance-list">
+                    <div class="appliance-item">
+                        <div class="appliance-name"><div class="appliance-icon"><i class="fas fa-tv"></i></div><span>Living Room TV</span></div>
+                        <div>0.15 kW</div><div class="appliance-status"></div>
+                    </div>
+                    <div class="appliance-item">
+                        <div class="appliance-name"><div class="appliance-icon"><i class="fas fa-thermometer-half"></i></div><span>AC Unit</span></div>
+                        <div>0.85 kW</div><div class="appliance-status"></div>
+                    </div>
+                    <div class="appliance-item">
+                        <div class="appliance-name"><div class="appliance-icon"><i class="fas fa-lightbulb"></i></div><span>Kitchen Lights</span></div>
+                        <div>0.24 kW</div><div class="appliance-status off"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Today's Consumption</h2>
+                    <div class="card-icon" id="upload-daily"><i class="fas fa-chart-line"></i></div>
+                </div>
+                <div class="consumption-value">18.6<span style="font-size:1rem;color:#aaa">kWh</span></div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:0.9rem;margin-top:5px;color:#f44336">
+                    <i class="fas fa-arrow-up"></i><span>5% more than average</span>
+                </div>
+                <div class="progress-bar"><div class="progress" style="width:75%;background:linear-gradient(to right, #ff9800, #f44336)"></div></div>
+                <div style="display:flex;justify-content:space-between;margin-top:15px">
+                    <div style="text-align:center;flex:1"><div style="font-size:0.9rem;color:#aaa">Peak Today</div><div style="font-size:1.5rem;font-weight:700;margin:5px 0">2.4<span style="font-size:0.8rem">kW</span></div><span style="background:rgba(255,152,0,0.2);color:#ff9800;padding:3px 8px;border-radius:10px;font-size:0.7rem">High</span></div>
+                    <div style="text-align:center;flex:1"><div style="font-size:0.9rem;color:#aaa">Cost Today</div><div style="font-size:1.5rem;font-weight:700;margin:5px 0">$3.72</div><span style="background:rgba(244,67,54,0.2);color:#f44336;padding:3px 8px;border-radius:10px;font-size:0.7rem">Expensive</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Weekly Consumption</h2>
+                    <div class="card-icon" id="upload-weekly"><i class="fas fa-chart-bar"></i></div>
+                </div>
+                <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Monthly Goal</h2>
+                    <div class="card-icon" id="upload-monthly"><i class="fas fa-bullseye"></i></div>
+                </div>
+                <div class="consumption-value">450<span style="font-size:1rem;color:#aaa">kWh</span></div>
+                <div class="progress-bar"><div class="progress" style="width:42%"></div></div>
+                <div style="margin-top:10px;text-align:center"><span>210 kWh used of 450 kWh limit</span></div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:0.9rem;margin-top:5px;color:#4caf50;justify-content:center">
+                    <i class="fas fa-arrow-down"></i><span>On track to save 8%</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Energy Saving Tips</h2>
+                    <div class="card-icon" id="upload-tips"><i class="fas fa-seedling"></i></div>
+                </div>
+                <div class="tips-container">
+                    <div class="tip-card"><div class="tip-icon"><i class="fas fa-thermometer"></i></div><div><h4>Adjust Thermostat</h4><p>Save up to 10% on heating</p></div></div>
+                    <div class="tip-card"><div class="tip-icon"><i class="fas fa-lightbulb"></i></div><div><h4>Switch to LEDs</h4><p>Use 75% less energy</p></div></div>
+                    <div class="tip-card"><div class="tip-icon"><i class="fas fa-plug"></i></div><div><h4>Unplug Devices</h4><p>Reduce standby power</p></div></div>
+                    <div class="tip-card"><div class="tip-icon"><i class="fas fa-sun"></i></div><div><h4>Use Natural Light</h4><p>Reduce lighting needs</p></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-outline" id="settings-btn"><i class="fas fa-cog"></i> Settings</button>
+            <button class="btn btn-primary" id="report-btn"><i class="fas fa-history"></i> View Report</button>
+        </div>
+    </div>
+
+    <div class="file-upload-container" id="upload-modal">
+        <div class="file-upload-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+                <h2 style="font-size:1.3rem;color:var(--primary)" id="upload-title">Upload Data</h2>
+                <button style="background:none;border:none;color:#aaa;font-size:1.3rem;cursor:pointer" id="close-upload"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="upload-area" id="upload-dropzone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Drag & Drop your CSV file here</p>
+                <span>or</span><br>
+                <button class="upload-btn" id="browse-btn">Browse Files</button>
+                <input type="file" id="csv-file" class="file-input" accept=".csv">
+            </div>
+            <div id="file-info"></div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">File uploaded successfully!</div>
+
+    <script>
+        // Initialize
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        });
+
+        // Charts
+        const weeklyChart = new Chart(document.getElementById('weeklyChart'), {
+            type: 'bar', data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Energy (kWh)', data: [22, 19, 24, 21, 25, 28, 30],
+                    backgroundColor: ['rgba(0,198,255,0.7)','rgba(0,198,255,0.7)','rgba(0,198,255,0.7)','rgba(0,198,255,0.7)','rgba(0,198,255,0.7)','rgba(255,64,129,0.7)','rgba(255,64,129,0.7)'],
+                    borderColor: ['rgba(0,198,255,1)','rgba(0,198,255,1)','rgba(0,198,255,1)','rgba(0,198,255,1)','rgba(0,198,255,1)','rgba(255,64,129,1)','rgba(255,64,129,1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } },
+                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } }
+                },
+                plugins: { legend: { labels: { color: '#ddd' } } }
+            }
+        });
+
+        // File upload functionality
+        const uploadModal = document.getElementById('upload-modal');
+        const closeUpload = document.getElementById('close-upload');
+        const uploadDropzone = document.getElementById('upload-dropzone');
+        const browseBtn = document.getElementById('browse-btn');
+        const csvFile = document.getElementById('csv-file');
+        const fileInfo = document.getElementById('file-info');
+        const notification = document.getElementById('notification');
+        const uploadTitle = document.getElementById('upload-title');
+
+        let currentUploadType = '';
+
+        // Open upload modal
+        document.querySelectorAll('.card-icon').forEach(icon => {
+            icon.addEventListener('click', function() {
+                currentUploadType = this.id.replace('upload-', '');
+                uploadTitle.textContent = `Upload ${currentUploadType.charAt(0).toUpperCase() + currentUploadType.slice(1)} Data`;
+                uploadModal.style.display = 'flex';
+            });
+        });
+
+        // Close upload modal
+        closeUpload.addEventListener('click', function() {
+            uploadModal.style.display = 'none';
+        });
+
+        // Browse files
+        browseBtn.addEventListener('click', function() {
+            csvFile.click();
+        });
+
+        // Handle file selection
+        csvFile.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                    fileInfo.innerHTML = `<p>Selected file: <strong>${file.name}</strong></p>`;
+                    setTimeout(() => {
+                        showNotification(`File uploaded successfully for ${currentUploadType}!`);
+                        uploadModal.style.display = 'none';
+                        csvFile.value = '';
+                        fileInfo.innerHTML = '';
+                    }, 1500);
+                } else {
+                    showNotification('Please select a valid CSV file', true);
+                }
+            }
+        });
+
+        // Drag and drop
+        uploadDropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = 'var(--primary)';
+            this.style.background = 'rgba(0,198,255,0.05)';
+        });
+
+        uploadDropzone.addEventListener('dragleave', function() {
+            this.style.borderColor = 'rgba(255,255,255,0.2)';
+            this.style.background = 'transparent';
+        });
+
+        uploadDropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = 'rgba(255,255,255,0.2)';
+            this.style.background = 'transparent';
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                    fileInfo.innerHTML = `<p>Selected file: <strong>${file.name}</strong></p>`;
+                    setTimeout(() => {
+                        showNotification(`File uploaded successfully for ${currentUploadType}!`);
+                        uploadModal.style.display = 'none';
+                        fileInfo.innerHTML = '';
+                    }, 1500);
+                } else {
+                    showNotification('Please select a valid CSV file', true);
+                }
+            }
+        });
+
+        // Show notification
+        function showNotification(message, isError = false) {
+            notification.textContent = message;
+            if (isError) notification.classList.add('error');
+            else notification.classList.remove('error');
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+
+        // Real-time updates
+        function updateConsumption() {
+            const currentUsage = document.querySelector('.card:nth-child(1) .consumption-value');
+            const value = parseFloat(currentUsage.textContent);
+            const randomChange = (Math.random() * 0.3) - 0.15;
+            const newValue = Math.max(0.5, value + randomChange).toFixed(2);
+            currentUsage.innerHTML = `${newValue}<span style="font-size:1rem;color:#aaa">kW</span>`;
+            
+            const statuses = document.querySelectorAll('.appliance-status');
+            statuses.forEach(status => {
+                if (Math.random() > 0.7) status.classList.toggle('off');
+            });
+        }
+
+        setInterval(updateConsumption, 5000);
+
+        // Button actions
+        document.getElementById('settings-btn').addEventListener('click', function() {
+            showNotification('Settings panel would open here');
+        });
+
+        document.getElementById('report-btn').addEventListener('click', function() {
+            showNotification('Generating detailed report...');
+        });
+    </script>
+</body>
+</html>
